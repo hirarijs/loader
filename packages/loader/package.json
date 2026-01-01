@@ -1,6 +1,6 @@
 {
   "name": "@hirarijs/loader",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Runtime loader for HirariJS that wires loader plugins and config",
   "type": "module",
   "main": "./dist/index.cjs",
@@ -17,13 +17,14 @@
       "require": "./dist/register-auto.cjs",
       "types": "./dist/register.d.ts"
     },
-    "./loader": "./dist/loader.js"
+    "./loader": "./dist/loader.js",
+    "./import": "./dist/import.js"
   },
   "files": [
     "dist"
   ],
   "scripts": {
-    "build": "tsup src/index.ts src/register.ts src/register-auto.ts src/loader.ts --format esm,cjs --dts",
+    "build": "tsup src/index.ts src/register.ts src/register-auto.ts src/loader.ts src/import.ts --format esm,cjs --dts",
     "test": "node --test"
   },
   "dependencies": {

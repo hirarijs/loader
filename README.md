@@ -1,6 +1,6 @@
 # @hirarijs/loader (monorepo)
 
-Draft of a pluggable runtime loader for HirariJS. It can be used both as a Node `--loader` (ESM) and `-r` (CJS) hook, and resolves plugins from a shared `hirari.json` config at the app root.
+Pluggable runtime loader for HirariJS. Supports both ESM and CJS entry points, resolves plugins from `hirari.json`, and can be preloaded via `--loader`, `-r`, or `--import` (Node 20+).
 
 ## Packages
 
@@ -38,20 +38,18 @@ Draft of a pluggable runtime loader for HirariJS. It can be used both as a Node 
 
 ## Usage
 
-### CJS `-r`
+- ESM loader (standard):  
+  `node --loader @hirarijs/loader/loader your-app.ts`
 
-```
-node -r @hirarijs/loader/register your-app.ts
-```
+- CJS preload (require hook):  
+  `node -r @hirarijs/loader/register-auto your-app.ts`
 
-### ESM `--loader`
-
-```
-node --loader @hirarijs/loader/loader your-app.ts
-```
+- ESM preload via Node 20+ `--import` + `node:module.register`:  
+  `node --import @hirarijs/loader/import your-app.mjs`
 
 ## Development
 
 - Root uses npm workspaces (`packages/*`).
-- Build all packages: `npm run build`
+- Build all packages: `yarn build`
+- Run tests for all workspaces: `yarn test`
 - Each package uses `tsup` to emit dual CJS/ESM bundles with dts.
