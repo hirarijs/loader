@@ -1,0 +1,9 @@
+{
+  "loader": {
+    "format": "esm",
+    "debug": true,
+    "plugins": [
+      "@hirarijs/loader-cjs-interop"
+    ]
+  }
+}

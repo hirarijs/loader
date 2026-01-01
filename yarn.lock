@@ -383,6 +383,18 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@hirarijs/loader-cjs-interop@workspace:packages/loader-cjs-interop":
+  version: 0.0.0-use.local
+  resolution: "@hirarijs/loader-cjs-interop@workspace:packages/loader-cjs-interop"
+  dependencies:
+    "@hirarijs/loader": "workspace:*"
+    tsup: "npm:^8.0.1"
+    typescript: "npm:^5.3.3"
+  peerDependencies:
+    "@hirarijs/loader": "*"
+  languageName: unknown
+  linkType: soft
+
 "@hirarijs/loader-monorepo@workspace:.":
   version: 0.0.0-use.local
   resolution: "@hirarijs/loader-monorepo@workspace:."
@@ -441,6 +453,7 @@ __metadata:
     tsup: "npm:^8.0.1"
     typescript: "npm:^5.3.3"
   peerDependencies:
+    "@hirarijs/loader-cjs-interop": "*"
     "@hirarijs/loader-ts": "*"
     "@hirarijs/loader-tsx": "*"
     "@hirarijs/loader-vue": "*"

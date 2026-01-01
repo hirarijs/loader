@@ -1,7 +1,7 @@
 {
-  "name": "@hirarijs/loader-ts",
-  "version": "1.0.14",
-  "description": "TypeScript loader plugin for HirariJS loader",
+  "name": "@hirarijs/loader-cjs-interop",
+  "version": "1.0.3",
+  "description": "CJS interop loader plugin that exposes named exports for CommonJS modules",
   "type": "module",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
@@ -13,6 +13,9 @@
       "types": "./dist/index.d.ts"
     }
   },
+  "publishConfig": {
+    "access": "public"
+  },
   "files": [
     "dist"
   ],
@@ -23,12 +26,8 @@
   "peerDependencies": {
     "@hirarijs/loader": "*"
   },
-  "dependencies": {
-    "esbuild": "^0.21.5"
-  },
   "devDependencies": {
     "@hirarijs/loader": "workspace:*",
-    "@types/node": "^25.0.3",
     "tsup": "^8.0.1",
     "typescript": "^5.3.3"
   }

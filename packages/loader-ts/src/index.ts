@@ -115,6 +115,17 @@ function runTransform(
   filename: string,
   ctx: LoaderPluginContext,
 ): TransformResult {
+  const opts =
+    (ctx.loaderConfig.pluginOptions?.['@hirarijs/loader-ts'] as {
+      ignoreNodeModules?: boolean
+      allowNodeModules?: boolean
+      continue?: boolean
+    }) || {}
+  const ignoreNm = opts.ignoreNodeModules !== false && opts.allowNodeModules !== true
+  if (ignoreNm && filename.includes('node_modules')) {
+    return { code, continue: true }
+  }
+
   const pathResolver = createTsResolve(filename, ctx.loaderConfig.debug)
   const rewrittenCode =
     pathResolver && !filename.includes('node_modules')
@@ -143,10 +154,11 @@ function runTransform(
         : undefined,
     banner,
   })
-  return {
+    return {
     code: result.code,
     map: result.map,
     format: ctx.format,
+    continue: opts.continue === true,
   }
 }
 

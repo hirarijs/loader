@@ -14,6 +14,17 @@ function runTransform(
   filename: string,
   ctx: LoaderPluginContext,
 ): TransformResult {
+  const opts =
+    (ctx.loaderConfig.pluginOptions?.['@hirarijs/loader-tsx'] as {
+      ignoreNodeModules?: boolean
+      allowNodeModules?: boolean
+      continue?: boolean
+    }) || {}
+  const ignoreNm = opts.ignoreNodeModules !== false && opts.allowNodeModules !== true
+  if (ignoreNm && filename.includes('node_modules')) {
+    return { code, continue: true }
+  }
+
   const ext = extname(filename)
   const loader = ext === '.jsx' ? 'jsx' : 'tsx'
   const banner =
@@ -38,6 +49,7 @@ function runTransform(
     code: result.code,
     map: result.map,
     format: ctx.format,
+    continue: opts.continue === true,
   }
 }
 

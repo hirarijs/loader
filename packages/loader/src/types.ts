@@ -10,6 +10,10 @@ export interface TransformResult {
   code: string
   map?: string
   format?: ModuleFormat
+  /**
+   * When true, loader will continue to next plugin instead of short-circuiting.
+   */
+  continue?: boolean
 }
 
 export interface LoaderPlugin {
@@ -37,6 +41,9 @@ export interface LoaderConfig {
   plugins?: string[]
   pluginOptions?: Record<string, Record<string, unknown>>
   autoInstall?: boolean
+  /**
+   * @deprecated 全局 ignore 已取消，请使用各插件的 ignoreNodeModules/allowNodeModules 配置。
+   */
   hookIgnoreNodeModules?: boolean
   debug?: boolean
 }

@@ -4,7 +4,12 @@ import { HirariConfig, LoaderConfig, ModuleFormat } from './types.js'
 
 const DEFAULT_CONFIG: Required<Pick<LoaderConfig, 'format' | 'plugins'>> = {
   format: 'cjs',
-  plugins: ['@hirarijs/loader-ts', '@hirarijs/loader-tsx', '@hirarijs/loader-vue'],
+  plugins: [
+    '@hirarijs/loader-ts',
+    '@hirarijs/loader-tsx',
+    '@hirarijs/loader-vue',
+    '@hirarijs/loader-cjs-interop',
+  ],
 }
 
 export function loadHirariConfig(cwd: string = process.cwd()): LoaderConfig {

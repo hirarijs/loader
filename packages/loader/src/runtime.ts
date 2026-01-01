@@ -57,35 +57,55 @@ export function createRuntime(cwd: string = process.cwd()): RuntimeContext {
   }
 }
 
-function pickPlugin(filename: string, plugins: ResolvedPlugin[]): ResolvedPlugin | undefined {
-  return plugins.find(({ plugin }) => plugin.match(filename))
-}
-
 function applyPlugin(
   code: string,
   filename: string,
   runtime: RuntimeContext,
 ): TransformResult {
-  const match = pickPlugin(filename, runtime.resolvedPlugins)
-  if (!match) {
-    if (runtime.loaderConfig.debug) {
-      console.log(`[hirari-loader] no plugin matched ${filename}`)
+  let currentCode = code
+  let currentFormat = runtime.format
+  let lastResult: TransformResult | null = null
+  for (const match of runtime.resolvedPlugins) {
+    if (!match.plugin.match(filename)) continue
+    const ctx = {
+      format: currentFormat,
+      loaderConfig: runtime.loaderConfig,
+      pluginOptions: match.options,
     }
-    return { code }
+    const result = match.plugin.transform(currentCode, filename, ctx)
+    if (runtime.loaderConfig.debug) {
+      console.log(`[hirari-loader][${match.plugin.name}] compiled ${filename}`)
+    }
+    if (result.map) {
+      map[filename] = result.map
+    }
+    if (result.format) {
+      currentFormat = result.format
+    }
+    if (result.continue) {
+      lastResult = result
+      if (result.code) {
+        currentCode = result.code
+      }
+      continue
+    }
+    return result
   }
-  const ctx = {
-    format: runtime.format,
-    loaderConfig: runtime.loaderConfig,
-    pluginOptions: match.options,
+  if (lastResult) {
+    return {
+      code: lastResult.code ?? currentCode,
+      map: lastResult.map,
+      format: lastResult.format ?? currentFormat,
+    }
   }
-  const result = match.plugin.transform(code, filename, ctx)
   if (runtime.loaderConfig.debug) {
-    console.log(`[hirari-loader][${match.plugin.name}] compiled ${filename}`)
+    console.log(`[hirari-loader] no plugin matched ${filename}`)
   }
-  if (result.map) {
-    map[filename] = result.map
-  }
-  return result
+  return { code: currentCode }
+}
+
+function pickPlugin(filename: string, runtime: RuntimeContext): ResolvedPlugin | undefined {
+  return runtime.resolvedPlugins.find(({ plugin }) => plugin.match(filename))
 }
 
 function collectExtensions(plugins: ResolvedPlugin[]): string[] {
@@ -110,7 +130,7 @@ export function registerRequireHooks(runtime: RuntimeContext) {
 
   const revert = addHook(compile, {
     exts: extensions,
-    ignoreNodeModules: runtime.loaderConfig.hookIgnoreNodeModules ?? true,
+    ignoreNodeModules: false,
   })
 
   // Ensure CJS can fallback when encountering ESM
@@ -143,7 +163,6 @@ export async function loaderResolve(
   next: any,
   runtime: RuntimeContext,
 ) {
-  const ignoreNodeModules = runtime.loaderConfig.hookIgnoreNodeModules ?? true
   const parentUrl = context && context.parentURL
   const baseDir =
     parentUrl && typeof parentUrl === 'string' && parentUrl.startsWith('file:')
@@ -153,9 +172,6 @@ export async function loaderResolve(
   const tryResolve = (basePath: string, note: string) => {
     for (const ext of EXTENSION_CANDIDATES) {
       const candidate = basePath + ext
-      if (ignoreNodeModules && candidate.includes('node_modules')) {
-        continue
-      }
       if (fs.existsSync(candidate) && fs.statSync(candidate).isFile()) {
         const url = pathToFileURL(candidate).href
         if (runtime.loaderConfig.debug) {
@@ -164,9 +180,6 @@ export async function loaderResolve(
         return { url, shortCircuit: true }
       }
       const indexCandidate = path.join(basePath, 'index' + ext)
-      if (ignoreNodeModules && indexCandidate.includes('node_modules')) {
-        continue
-      }
       if (fs.existsSync(indexCandidate) && fs.statSync(indexCandidate).isFile()) {
         const url = pathToFileURL(indexCandidate).href
         if (runtime.loaderConfig.debug) {
@@ -221,7 +234,7 @@ export async function loaderLoad(url: string, context: any, next: any, runtime: 
   const { format: expectedFormat } = runtime
   if (url.startsWith('file://')) {
     const filename = fileURLToPath(url)
-    const match = pickPlugin(filename, runtime.resolvedPlugins)
+  const match = pickPlugin(filename, runtime)
     if (runtime.loaderConfig.debug) {
       console.log(`[hirari-loader] load hook url=${url} match=${!!match}`)
     }

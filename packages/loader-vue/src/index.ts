@@ -37,6 +37,17 @@ function compileVue(
   filename: string,
   ctx: LoaderPluginContext,
 ): TransformResult {
+  const opts =
+    (ctx.loaderConfig.pluginOptions?.['@hirarijs/loader-vue'] as {
+      ignoreNodeModules?: boolean
+      allowNodeModules?: boolean
+      continue?: boolean
+    }) || {}
+  const ignoreNm = opts.ignoreNodeModules !== false && opts.allowNodeModules !== true
+  if (ignoreNm && filename.includes('node_modules')) {
+    return { code, continue: true }
+  }
+
   const { descriptor } = parse(code, { filename })
   const id = createHash('sha256').update(filename).digest('hex').slice(0, 8)
 
@@ -101,6 +112,7 @@ function compileVue(
     code: transformed.code,
     map: transformed.map,
     format: ctx.format,
+    continue: opts.continue === true,
   }
 }
 
