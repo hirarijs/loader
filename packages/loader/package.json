@@ -1,6 +1,6 @@
 {
   "name": "@hirarijs/loader",
-  "version": "1.0.1",
+  "version": "1.0.8",
   "description": "Runtime loader for HirariJS that wires loader plugins and config",
   "type": "module",
   "main": "./dist/index.cjs",

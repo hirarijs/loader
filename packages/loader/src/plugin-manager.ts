@@ -71,6 +71,9 @@ export function resolvePlugins(
       plugin: loaded,
       options: config.pluginOptions?.[pluginName],
     })
+    if (config.debug) {
+      console.log(`[hirari-loader] loaded plugin ${pluginName}`)
+    }
   }
   return plugins
 }

@@ -1,0 +1,8 @@
+{
+  "loader": {
+    "format": "esm",
+    "plugins": [
+      "./../../../../loader-ts/dist/index.cjs"
+    ]
+  }
+}

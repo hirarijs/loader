@@ -38,6 +38,7 @@ export interface LoaderConfig {
   pluginOptions?: Record<string, Record<string, unknown>>
   autoInstall?: boolean
   hookIgnoreNodeModules?: boolean
+  debug?: boolean
 }
 
 export interface HirariConfig {
