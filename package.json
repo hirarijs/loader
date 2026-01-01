@@ -1,0 +1,16 @@
+{
+  "name": "@hirarijs/loader-monorepo",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Unified loader for Nodejs",
+  "license": "MIT",
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "yarn workspaces foreach -A -p run build",
+    "lint": "echo \"TODO: add lint\"",
+    "test": "yarn build && yarn workspaces foreach -A -p run test"
+  },
+  "packageManager": "yarn@4.12.0"
+}

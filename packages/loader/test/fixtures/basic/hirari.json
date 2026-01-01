@@ -1,0 +1,8 @@
+{
+  "loader": {
+    "format": "cjs",
+    "plugins": [
+      "/root/dev/hirarijs/loader/packages/loader-ts/dist/index.cjs"
+    ]
+  }
+}

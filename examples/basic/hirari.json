@@ -1,0 +1,10 @@
+{
+  "loader": {
+    "format": "cjs",
+    "plugins": [
+      "@hirarijs/loader-ts",
+      "@hirarijs/loader-tsx",
+      "@hirarijs/loader-vue"
+    ]
+  }
+}
