@@ -6,6 +6,7 @@ import {
   type TransformResult,
 } from '@hirarijs/loader'
 import path from 'path'
+import { pathToFileURL } from 'url'
 import ts from 'typescript'
 
 type ResolveFn = (specifier: string, importer: string) => string | null
@@ -16,8 +17,11 @@ let rootConfigPath: string | null = null
 
 function findRootTsconfig(): string | null {
   if (rootConfigPath !== null) return rootConfigPath
-  const candidate = path.join(process.cwd(), 'tsconfig.json')
-  rootConfigPath = ts.sys.fileExists(candidate) ? candidate : null
+  const candidates = [
+    path.join(process.cwd(), 'tsconfig.json'),
+    path.join(process.cwd(), 'tsconfig.base.json'),
+  ]
+  rootConfigPath = candidates.find((c) => ts.sys.fileExists(c)) || null
   return rootConfigPath
 }
 
@@ -61,8 +65,34 @@ function createTsResolveForConfig(tsconfigPath: string, debug = false): ResolveF
 
   const resolver: ResolveFn = (specifier: string, importer: string) => {
     const result = ts.resolveModuleName(specifier, importer, options, host)
-    const resolved = result.resolvedModule?.resolvedFileName
-    if (resolved && !resolved.endsWith('.d.ts')) {
+    let resolved = result.resolvedModule?.resolvedFileName
+    // If it didn't hit anything from paths/baseUrl, bail out (avoid rewriting to dist/default)
+    if (result.resolvedModule?.isExternalLibraryImport || !result.resolvedModule) {
+      return null
+    }
+    if (resolved && resolved.endsWith('.d.ts')) {
+      const candidates = [
+        resolved.replace(/\.d\.ts$/, '.ts'),
+        resolved.replace(/\.d\.ts$/, '.tsx'),
+        resolved.replace(/\.d\.ts$/, '.js'),
+        resolved.replace(/\.d\.ts$/, '.mjs'),
+        resolved.replace(/\.d\.ts$/, '.cts'),
+        resolved.replace(/\.d\.ts$/, '.cjs'),
+      ]
+      if (resolved.includes(`${path.sep}dist${path.sep}`)) {
+        const srcBase = resolved.replace(`${path.sep}dist${path.sep}`, `${path.sep}src${path.sep}`)
+        candidates.unshift(
+          srcBase.replace(/\.d\.ts$/, '.ts'),
+          srcBase.replace(/\.d\.ts$/, '.tsx'),
+          srcBase.replace(/\.d\.ts$/, '.js'),
+          srcBase.replace(/\.d\.ts$/, '.mjs'),
+          srcBase.replace(/\.d\.ts$/, '.cts'),
+          srcBase.replace(/\.d\.ts$/, '.cjs'),
+        )
+      }
+      resolved = candidates.find((f) => ts.sys.fileExists(f)) || resolved
+    }
+    if (resolved) {
       if (debug) {
         console.log(`[loader-ts] resolved ${specifier} -> ${resolved}`)
       }
@@ -86,6 +116,12 @@ function createTsResolve(importer: string, debug = false): ResolveFn | null {
   return createTsResolveForConfig(tsconfigPath, debug)
 }
 
+function hasTsconfigFor(importer: string): boolean {
+  const root = findRootTsconfig()
+  if (root) return true
+  return Boolean(findNearestTsconfig(path.dirname(importer)))
+}
+
 function rewriteImports(code: string, filename: string, resolve: ResolveFn, debug = false): string {
   const importLike =
     /(import\s+[^'";]+?from\s+['"]([^'"]+)['"])|(import\s+['"]([^'"]+)['"])|(export\s+[^'";]+?from\s+['"]([^'"]+)['"])/g
@@ -96,6 +132,7 @@ function rewriteImports(code: string, filename: string, resolve: ResolveFn, debu
     }
     const resolved = resolve(spec, filename)
     if (!resolved) return full
+    if (resolved.includes('node_modules')) return full
     if (debug) {
       console.log(`[loader-ts] rewrite ${spec} -> ${resolved}`)
     }
@@ -107,18 +144,22 @@ function rewriteImports(code: string, filename: string, resolve: ResolveFn, debu
   })
 }
 
-// Also include .js/.mjs/.cjs so we can rewrite aliases in JS that rely on TS paths.
-const extensions = ['.ts', '.mts', '.cts', '.js', '.mjs', '.cjs']
+const extensions = ['.ts', '.mts', '.cts']
 
 function runTransform(
   code: string,
   filename: string,
   ctx: LoaderPluginContext,
 ): TransformResult {
+  const ext = path.extname(filename)
+  if (!extensions.includes(ext)) {
+    return { code, continue: true }
+  }
   const opts =
     (ctx.loaderConfig.pluginOptions?.['@hirarijs/loader-ts'] as {
       ignoreNodeModules?: boolean
       allowNodeModules?: boolean
+      format?: 'esm' | 'cjs'
       continue?: boolean
     }) || {}
   const ignoreNm = opts.ignoreNodeModules !== false && opts.allowNodeModules !== true
@@ -131,23 +172,25 @@ function runTransform(
     pathResolver && !filename.includes('node_modules')
       ? rewriteImports(code, filename, pathResolver, ctx.loaderConfig.debug)
       : code
+
   if (ctx.loaderConfig.debug) {
     console.log(`[loader-ts] transforming ${filename}`)
     if (!pathResolver) {
       console.log('[loader-ts] no tsconfig resolver created for', filename)
     }
   }
+  const outFormat = opts.format || 'esm'
   const banner =
-    ctx.format === 'cjs'
+    outFormat === 'cjs'
       ? `const ${IMPORT_META_URL_VARIABLE} = require('url').pathToFileURL(__filename).href;`
       : undefined
   const result = transformSync(rewrittenCode, {
     loader: 'ts',
-    format: ctx.format,
+    format: outFormat,
     sourcemap: 'both',
     sourcefile: filename,
     define:
-      ctx.format === 'cjs'
+      outFormat === 'cjs'
         ? {
             'import.meta.url': IMPORT_META_URL_VARIABLE,
           }
@@ -157,7 +200,7 @@ function runTransform(
     return {
     code: result.code,
     map: result.map,
-    format: ctx.format,
+    format: outFormat,
     continue: opts.continue === true,
   }
 }
@@ -167,8 +210,17 @@ const plugin: LoaderPlugin = {
   extensions,
   match: (filename) => {
     const ext = path.extname(filename)
-    if (!ext) return true // fallback: try compiling extension-less files
-    return extensions.includes(ext)
+    return extensions.includes(ext) && hasTsconfigFor(filename)
+  },
+  resolve: (specifier, importer, ctx) => {
+    if (!importer) return null
+    if (specifier.startsWith('node:')) return null
+    const resolver = createTsResolve(importer, ctx.loaderConfig.debug)
+    if (!resolver) return null
+    const resolved = resolver(specifier, importer)
+    if (!resolved) return null
+    if (resolved.includes('node_modules')) return null
+    return { url: pathToFileURL(resolved).href, shortCircuit: true }
   },
   transform: runTransform,
 }

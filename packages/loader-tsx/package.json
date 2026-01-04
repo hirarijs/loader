@@ -1,6 +1,6 @@
 {
   "name": "@hirarijs/loader-tsx",
-  "version": "1.0.1",
+  "version": "1.0.3",
   "description": "TSX/JSX loader plugin for HirariJS loader",
   "type": "module",
   "main": "./dist/index.cjs",

@@ -1,5 +1,8 @@
 import { strict as assert } from 'node:assert'
-import plugin from '../dist/index.js'
+import { createRequire } from 'node:module'
+
+const require = createRequire(import.meta.url)
+const plugin = require('../dist/index.cjs').default || require('../dist/index.cjs')
 
 const ctx = {
   format: 'cjs',

@@ -1,6 +1,6 @@
 {
   "name": "@hirarijs/loader-cjs-interop",
-  "version": "1.0.3",
+  "version": "1.0.19",
   "description": "CJS interop loader plugin that exposes named exports for CommonJS modules",
   "type": "module",
   "main": "./dist/index.cjs",
@@ -20,7 +20,7 @@
     "dist"
   ],
   "scripts": {
-    "build": "tsup src/index.ts --format esm,cjs --dts",
+    "build": "tsup src/index.ts --format esm,cjs --dts --target es2020 --tsconfig tsconfig.json",
     "test": "node --test"
   },
   "peerDependencies": {
@@ -28,7 +28,7 @@
   },
   "devDependencies": {
     "@hirarijs/loader": "workspace:*",
-    "tsup": "^8.0.1",
-    "typescript": "^5.3.3"
-  }
+    "tsup": "^8.0.1"
+  },
+  "dependencies": {}
 }

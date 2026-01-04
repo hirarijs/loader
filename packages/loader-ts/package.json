@@ -1,6 +1,6 @@
 {
   "name": "@hirarijs/loader-ts",
-  "version": "1.0.14",
+  "version": "1.0.20",
   "description": "TypeScript loader plugin for HirariJS loader",
   "type": "module",
   "main": "./dist/index.cjs",

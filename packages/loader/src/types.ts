@@ -27,6 +27,14 @@ export interface LoaderPlugin {
    */
   match: (filename: string) => boolean
   /**
+   * Optional resolve hook. Return a URL (or null to skip) to short-circuit resolution.
+   */
+  resolve?: (
+    specifier: string,
+    importer: string | null,
+    ctx: LoaderPluginContext,
+  ) => { url: string; format?: ModuleFormat; shortCircuit?: boolean } | null
+  /**
    * Synchronous transform hook. Should return already-transformed JS.
    */
   transform: (

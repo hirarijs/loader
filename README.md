@@ -1,4 +1,4 @@
-# @hirarijs/loader (monorepo)
+# @hirarijs/loader
 
 Pluggable runtime loader for HirariJS. Supports both ESM and CJS entry points, resolves plugins from `hirari.json`, and can be preloaded via `--loader`, `-r`, or `--import` (Node 20+).
 
@@ -9,32 +9,41 @@ Pluggable runtime loader for HirariJS. Supports both ESM and CJS entry points, r
 - `@hirarijs/loader-tsx`: TSX/JSX transformer.
 - `@hirarijs/loader-vue`: Vue SFC transformer.
 
-## hirari.json (per project)
+## `hirari.json` (project config)
 
 ```json
 {
   "loader": {
-    "format": "cjs",
     "plugins": [
       "@hirarijs/loader-ts",
       "@hirarijs/loader-tsx",
       "@hirarijs/loader-vue"
     ],
     "pluginOptions": {
-      "@hirarijs/loader-ts": {},
-      "@hirarijs/loader-tsx": {},
-      "@hirarijs/loader-vue": {}
+      "@hirarijs/loader-ts": {
+        "format": "esm",
+        "ignoreNodeModules": true
+      },
+      "@hirarijs/loader-tsx": {
+        "format": "esm",
+        "ignoreNodeModules": true,
+        "jsx": "transform",
+        "jsxFactory": "h"
+      },
+      "@hirarijs/loader-vue": {
+        "ignoreNodeModules": true
+      }
     },
     "autoInstall": true,
-    "hookIgnoreNodeModules": true
+    "debug": false
   }
 }
 ```
 
-- `format`: output module format when compiling on the fly (`cjs` or `esm`).
-- `plugins`: ordered list of loader plugins to register.
-- `pluginOptions`: optional per-plugin config; passed through the `LoaderPluginContext`.
-- `autoInstall`: when `true`, missing plugins will be installed with the detected package manager.
+- Files without a matching plugin use format inference (extension + nearest `package.json` `type`) for CJS/ESM.
+- TS/TSX output format is set per plugin (`format`, default `esm`); JSX behavior is configurable via `jsx`/`jsxFactory`/`jsxFragment`/`jsxImportSource`/`jsxDev`.
+- Plugins may expose an optional `resolve` hook. TS/TSX use tsconfig `baseUrl/paths` to map bare imports to source outside `node_modules`; otherwise resolution falls back to Node defaults.
+- `autoInstall` installs missing plugins; `debug` emits verbose logs.
 
 ## Usage
 

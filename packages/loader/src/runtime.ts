@@ -5,11 +5,12 @@ import { fileURLToPath, pathToFileURL } from 'url'
 import { addHook } from 'pirates'
 import * as sourceMapSupport from 'source-map-support'
 import { LoaderConfig, ModuleFormat, TransformResult } from './types.js'
-import { IMPORT_META_URL_VARIABLE } from './constants.js'
+import { IMPORT_META_URL_VARIABLE, BYPASS_FLAG, BYPASS_PREFIX } from './constants.js'
 import { loadHirariConfig, getFormat } from './config.js'
 import { resolvePlugins, ResolvedPlugin } from './plugin-manager.js'
 
 const map: Record<string, string> = {}
+const packageTypeCache = new Map<string, 'module' | 'commonjs'>()
 const EXTENSION_CANDIDATES = [
   '.ts',
   '.mts',
@@ -44,6 +45,42 @@ export interface RuntimeContext {
 
 const toNodeLoaderFormat = (format: ModuleFormat): 'module' | 'commonjs' =>
   format === 'esm' ? 'module' : 'commonjs'
+
+function findNearestPackageType(filename: string): 'module' | 'commonjs' {
+  const dir = path.dirname(filename)
+  if (packageTypeCache.has(dir)) return packageTypeCache.get(dir)!
+  let current = dir
+  while (true) {
+    const candidate = path.join(current, 'package.json')
+    if (fs.existsSync(candidate)) {
+      try {
+        const pkg = JSON.parse(fs.readFileSync(candidate, 'utf8'))
+        const type = pkg && pkg.type === 'module' ? 'module' : 'commonjs'
+        packageTypeCache.set(dir, type)
+        return type
+      } catch {
+        break
+      }
+    }
+    const parent = path.dirname(current)
+    if (parent === current) break
+    current = parent
+  }
+  packageTypeCache.set(dir, 'commonjs')
+  return 'commonjs'
+}
+
+function inferFormat(filename: string, fallback: ModuleFormat): ModuleFormat {
+  const ext = path.extname(filename)
+  if (ext === '.mjs' || ext === '.mts' || ext === '.mtsx') return 'esm'
+  if (ext === '.cjs' || ext === '.cts') return 'cjs'
+  if (ext === '.js' || ext === '.ts' || ext === '.tsx' || ext === '.jsx' || ext === '.vue') {
+    const pkgType = findNearestPackageType(filename)
+    return pkgType === 'module' ? 'esm' : 'cjs'
+  }
+  return fallback
+}
+
 
 export function createRuntime(cwd: string = process.cwd()): RuntimeContext {
   const loaderConfig = loadHirariConfig(cwd)
@@ -119,6 +156,9 @@ function collectExtensions(plugins: ResolvedPlugin[]): string[] {
 export function registerRequireHooks(runtime: RuntimeContext) {
   const extensions = collectExtensions(runtime.resolvedPlugins)
   const compile = (code: string, filename: string) => {
+    if ((globalThis as any)[BYPASS_FLAG]) {
+      return code
+    }
     const result = applyPlugin(code, filename, runtime)
     const banner = `const ${IMPORT_META_URL_VARIABLE} = require('url').pathToFileURL(__filename).href;`
     // avoid double compilation
@@ -168,6 +208,32 @@ export async function loaderResolve(
     parentUrl && typeof parentUrl === 'string' && parentUrl.startsWith('file:')
       ? path.dirname(fileURLToPath(parentUrl))
       : process.cwd()
+
+  // bypass prefix: strip and short-circuit
+  if (specifier.startsWith(BYPASS_PREFIX)) {
+    const target = specifier.slice(BYPASS_PREFIX.length)
+    const url = target.startsWith('file:') ? target : pathToFileURL(target).href
+    return { url, shortCircuit: true }
+  }
+
+  // plugin resolve hooks
+  for (const match of runtime.resolvedPlugins) {
+    if (typeof match.plugin.resolve !== 'function') continue
+    const importer =
+      parentUrl && typeof parentUrl === 'string' && parentUrl.startsWith('file:')
+        ? fileURLToPath(parentUrl)
+        : null
+    const ctx = {
+      format: runtime.format,
+      loaderConfig: runtime.loaderConfig,
+      pluginOptions: match.options,
+    }
+    const res = match.plugin.resolve(specifier, importer, ctx)
+    if (res && res.url) {
+      const url = res.url.startsWith('file:') ? res.url : pathToFileURL(res.url).href
+      return { url, shortCircuit: res.shortCircuit !== false, format: res.format }
+    }
+  }
 
   const tryResolve = (basePath: string, note: string) => {
     for (const ext of EXTENSION_CANDIDATES) {
@@ -226,7 +292,6 @@ export async function loaderResolve(
   }
 
   if (next) return next(specifier, context)
-  // If no downstream resolve, signal completion to avoid ERR_LOADER_CHAIN_INCOMPLETE
   return { url: specifier, shortCircuit: true }
 }
 
@@ -234,15 +299,16 @@ export async function loaderLoad(url: string, context: any, next: any, runtime: 
   const { format: expectedFormat } = runtime
   if (url.startsWith('file://')) {
     const filename = fileURLToPath(url)
-  const match = pickPlugin(filename, runtime)
+    const match = pickPlugin(filename, runtime)
     if (runtime.loaderConfig.debug) {
       console.log(`[hirari-loader] load hook url=${url} match=${!!match}`)
     }
     if (match) {
       const source = fs.readFileSync(filename, 'utf8')
       const result = applyPlugin(source, filename, runtime)
+      const fallbackFormat = inferFormat(filename, expectedFormat)
       return {
-        format: toNodeLoaderFormat(result.format || expectedFormat),
+        format: toNodeLoaderFormat(result.format || fallbackFormat),
         source: result.code,
         shortCircuit: true,
       }
