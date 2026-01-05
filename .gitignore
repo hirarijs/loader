@@ -23,3 +23,5 @@ yarn-error.log*
 
 # External repo clone
 esbuild-register
+
+.npm-cache/
